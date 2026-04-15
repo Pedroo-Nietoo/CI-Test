@@ -55,6 +55,7 @@ jobs:
       - name: Add Coverage Summary
         if: always()
         run: |
+          # 1. Gera a lista de arquivos incompletos
           INCOMPLETE_FILES=$(npm run test:cov | \
           grep -E "\.ts|\.js" | \
           grep -v "All files" | \
@@ -62,6 +63,7 @@ jobs:
           sed 's/|//g' | \
           awk '{ if ($2 < 100 || $3 < 100 || $4 < 100 || $5 < 100) print "| **" $1 "** | " $2 "% | " $3 "% | " $4 "% | " $5 "% |" }')
 
+          # 2. Exibe tabela ou mensagem de sucesso
           if [ -z "$INCOMPLETE_FILES" ]; then
             echo "### ✅ Todos os arquivos atingiram 100% de cobertura!" >> $GITHUB_STEP_SUMMARY
           else
@@ -74,10 +76,15 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### 📊 Resumo Geral" >> $GITHUB_STEP_SUMMARY
 
-          TOTAL_LINE=$(npm run test:cov | grep "All files" | tr -s " " | sed 's/|//g')
-          echo "* **Statements:** $(echo $TOTAL_LINE | awk '{print $2}')%" >> $GITHUB_STEP_SUMMARY
-          echo "* **Branches:** $(echo $TOTAL_LINE | awk '{print $3}')% (Mínimo: 90%)" >> $GITHUB_STEP_SUMMARY
-          echo "* **Lines:** $(echo $TOTAL_LINE | awk '{print $5}')%" >> $GITHUB_STEP_SUMMARY
+          TOTAL_LINE=$(npm run test:cov | grep "All files" | sed 's/|//g' | tr -s " ")
+
+          echo "* **Statements:** $(echo "$TOTAL_LINE" | awk '{print $3}')%" >> $GITHUB_STEP_SUMMARY
+          echo "* **Branches:** $(echo "$TOTAL_LINE" | awk '{print $4}')% (Mínimo: 90%)" >> $GITHUB_STEP_SUMMARY
+          echo "* **Lines:** $(echo "$TOTAL_LINE" | awk '{print $6}')%" >> $GITHUB_STEP_SUMMARY
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📦 Artefatos e Detalhes" >> $GITHUB_STEP_SUMMARY
+          echo "🔗 [Ir para a seção de Downloads (Artifacts)](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}#artifacts)" >> $GITHUB_STEP_SUMMARY
 
       - name: Upload Coverage Artifact
         if: always()
