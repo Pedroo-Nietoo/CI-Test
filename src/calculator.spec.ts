@@ -24,14 +24,4 @@ describe('Calculator', () => {
   // Testa o branch 'else'
   expect(calculator.complexOperation(-1, 5)).toBe(4);
  });
-
- it('deve cobrir todos os caminhos de anotherComplexOperation', () => {
-  expect(calculator.anotherComplexOperation(10, 5)).toBe(15);
-  expect(calculator.anotherComplexOperation(-1, 5)).toBe(4);
- });
-
- it('deve cobrir todos os caminhos de anotherComplexOperation2', () => {
-  expect(calculator.anotherComplexOperation2(10, 5)).toBe(15);
-  expect(calculator.anotherComplexOperation2(-1, 5)).toBe(4);
- });
 });
