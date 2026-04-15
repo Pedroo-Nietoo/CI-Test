@@ -1,0 +1,2 @@
+Status SonarQube:
+[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=Pedroo-Nietoo_CI-Test&metric=alert_status&token=b3fba253811da5c198c188835a9ca4a6477db972)](https://sonarcloud.io/summary/new_code?id=Pedroo-Nietoo_CI-Test)

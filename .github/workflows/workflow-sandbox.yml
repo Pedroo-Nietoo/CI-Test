@@ -2,140 +2,145 @@
 name: Workflow Sandbox (Dev)
 
 on:
- push:
-  branches: ["main"]
- pull_request:
-  branches: ["main"]
- workflow_dispatch:
-  inputs:
-   action:
-    description: "Selecione a ação desejada:"
-    required: true
-    default: "Build & Test"
-    type: choice
-    options:
-     - "Build Only"
-     - "Build & Test"
-     - "Deploy"
-   enable_sonar:
-    description: "Habilitar análise do SonarQube?"
-    required: false
-    type: boolean
-    default: false
-   # enable_fortify:
-   #  description: "Habilitar análise do Fortify (SAST)?"
-   #  required: false
-   #  type: boolean
-   #  default: false
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "Selecione a ação desejada:"
+        required: true
+        default: "Build & Test"
+        type: choice
+        options:
+          - "Build Only"
+          - "Build & Test"
+          - "Deploy"
+      enable_sonar:
+        description: "Habilitar análise do SonarQube?"
+        required: false
+        type: boolean
+        default: false
+      # enable_fortify:
+      #  description: "Habilitar análise do Fortify (SAST)?"
+      #  required: false
+      #  type: boolean
+      #  default: false
 
 jobs:
- build:
-  name: 🏗️ Build Application
-  runs-on: ubuntu-latest
-  steps:
-   - name: Code checkout
-     uses: actions/checkout@v4
+  build:
+    name: 🏗️ Build Application
+    runs-on: ubuntu-latest
+    steps:
+      - name: Code checkout
+        uses: actions/checkout@v4
 
-   - name: Configure Node.js
-     uses: actions/setup-node@v4
-     with:
-      node-version: "22"
-      cache: "npm"
+      - name: Configure Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
 
-   - name: Install dependencies
-     run: npm ci
+      - name: Install dependencies
+        run: npm ci
 
-   - name: Linter Check
-     run: npm run lint
+      - name: Linter Check
+        run: npm run lint
 
-   - name: Build NestJS App
-     run: npm run build
+      - name: Build NestJS App
+        run: npm run build
 
- test:
-  name: 🧪 Run Tests
-  needs: build
-  # Roda sempre em push/PR, ou se selecionado no workflow_dispatch
-  if: ${{ github.event_name != 'workflow_dispatch' || inputs.action == 'Build & Test' || inputs.action == 'Deploy' }}
-  runs-on: ubuntu-latest
-  steps:
-   - name: Code checkout
-     uses: actions/checkout@v4
+  test:
+    name: 🧪 Run Tests
+    needs: build
+    # Roda sempre em push/PR, ou se selecionado no workflow_dispatch
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.action == 'Build & Test' || inputs.action == 'Deploy' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Code checkout
+        uses: actions/checkout@v4
 
-   - name: Configure Node.js
-     uses: actions/setup-node@v4
-     with:
-      node-version: "22"
-      cache: "npm"
+      - name: Configure Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
 
-   - name: Install dependencies
-     run: npm ci
+      - name: Install dependencies
+        run: npm ci
 
-   - name: Unit Tests
-     run: npm run test
-     # Recomendado: Gerar relatório de cobertura para o SonarQube ler depois
-     # run: npm run test:cov
+      - name: Unit Tests
+        run: npm run test
+        # Recomendado: Gerar relatório de cobertura para o SonarQube ler depois
+        # run: npm run test:cov
 
- security_scans:
-  name: 🛡️ Security Scans (Fortify & Mend)
-  needs: build
-  # Roda apenas se habilitado manualmente no dispatch
-  if: ${{ github.event_name == 'workflow_dispatch' && inputs.enable_fortify == true }}
-  runs-on: ubuntu-latest
-  steps:
-   - name: Code checkout
-     uses: actions/checkout@v4
+  security_scans:
+    name: 🛡️ Security Scans (Fortify & Mend)
+    needs: build
+    # Roda apenas se habilitado manualmente no dispatch
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.enable_fortify == true }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Code checkout
+        uses: actions/checkout@v4
 
-   # --- MEND (SCA - Software Composition Analysis) ---
-   # Valida vulnerabilidades em bibliotecas de terceiros (package.json)
-   - name: Run Mend (Snyk/npm audit alternative)
-     run: |
-      echo "Executando Mend para validação de dependências..."
-      # Exemplo nativo do NPM caso não tenha licença do Mend ainda:
-      npm audit --audit-level=high
+      # --- MEND (SCA - Software Composition Analysis) ---
+      # Valida vulnerabilidades em bibliotecas de terceiros (package.json)
+      - name: Run Mend (Snyk/npm audit alternative)
+        run: |
+          echo "Executando Mend para validação de dependências..."
+          # Exemplo nativo do NPM caso não tenha licença do Mend ainda:
+          npm audit --audit-level=high
 
-   # --- FORTIFY (SAST - Static Application Security Testing) ---
-   # Valida vulnerabilidades no seu código fonte
-   # - name: Setup Fortify
-   #   uses: fortify/github-action@v1 # Exemplo de action oficial
-   #   with:
-   #    # É necessário configurar as secrets no repositório
-   #    fcli: "scancentral -url ${{ secrets.FOD_URL }} -tenant ${{ secrets.FOD_TENANT }}"
-   # - name: Run Fortify Scan
-   #   run: echo "Executando varredura SAST do Fortify..."
+      # --- FORTIFY (SAST - Static Application Security Testing) ---
+      # Valida vulnerabilidades no seu código fonte
+      # - name: Setup Fortify
+      #   uses: fortify/github-action@v1 # Exemplo de action oficial
+      #   with:
+      #    # É necessário configurar as secrets no repositório
+      #    fcli: "scancentral -url ${{ secrets.FOD_URL }} -tenant ${{ secrets.FOD_TENANT }}"
+      # - name: Run Fortify Scan
+      #   run: echo "Executando varredura SAST do Fortify..."
 
- sonarqube:
-  name: 📊 SonarQube Analysis
-  needs: [build, test]
-  # Roda em push/PR, ou se habilitado manualmente no dispatch
-  if: ${{ github.event_name != 'workflow_dispatch' || inputs.enable_sonar == true }}
-  runs-on: ubuntu-latest
-  steps:
-   - name: Code checkout
-     uses: actions/checkout@v4
-     with:
-      fetch-depth: 0 # Necessário para o SonarQube analisar o histórico e blame
+  sonarqube:
+    name: 📊 SonarQube Analysis
+    needs: [build, test]
+    # Roda em push/PR, ou se habilitado manualmente no dispatch
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.enable_sonar == true }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Code checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Necessário para o SonarQube analisar o histórico e blame
 
-   - name: SonarQube Scan
-     uses: sonarsource/sonarqube-scan-action@master
-     env:
-      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      - name: SonarQube Scan
+        uses: sonarsource/sonarqube-scan-action@master
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          args: >
+            -Dsonar.projectKey=${{ github.repository_owner }}_${{ github.event.repository.name }}
+            -Dsonar.organization=pedroo-nietoo
+            -Dsonar.sources=src
 
- deploy:
-  name: 🚀 Deploy to Sandbox/Dev
-  # Exige que build e testes passem. Sonar e SecScans não bloqueiam o deploy de dev caso falhem (opcional)
-  needs: [build, test]
-  if: ${{ github.event_name == 'workflow_dispatch' && inputs.action == 'Deploy' }}
-  runs-on: ubuntu-latest
-  steps:
-   - name: Code checkout
-     uses: actions/checkout@v4
+  deploy:
+    name: 🚀 Deploy to Sandbox/Dev
+    # Exige que build e testes passem. Sonar e SecScans não bloqueiam o deploy de dev caso falhem (opcional)
+    needs: [build, test]
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.action == 'Deploy' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Code checkout
+        uses: actions/checkout@v4
 
-   - name: Configure Node.js
-     uses: actions/setup-node@v4
-     with:
-      node-version: "22"
+      - name: Configure Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
 
-   - name: Release execution
-     run: |
-      echo "Build e Testes concluídos."
-      echo "Iniciando Deploy para AWS (Ambiente de Dev)..."
+      - name: Release execution
+        run: |
+          echo "Build e Testes concluídos."
+          echo "Iniciando Deploy para AWS (Ambiente de Dev)..."
