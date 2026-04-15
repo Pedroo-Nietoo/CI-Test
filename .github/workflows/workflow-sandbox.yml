@@ -24,7 +24,7 @@ on:
 
 jobs:
   build:
-    name: 🏗️ Build Application
+    name: Build Application
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -37,7 +37,7 @@ jobs:
       - run: npm run build
 
   test:
-    name: 🧪 Run Tests
+    name: Run Tests
     needs: build
     if: github.event_name != 'workflow_dispatch' || inputs.action == 'Build & Test' || inputs.action == 'Deploy'
     runs-on: ubuntu-latest
@@ -79,11 +79,6 @@ jobs:
           echo "* **Branches:** $(echo $TOTAL_LINE | awk '{print $3}')% (Mínimo: 90%)" >> $GITHUB_STEP_SUMMARY
           echo "* **Lines:** $(echo $TOTAL_LINE | awk '{print $5}')%" >> $GITHUB_STEP_SUMMARY
 
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### 📦 Artefatos e Detalhes" >> $GITHUB_STEP_SUMMARY
-          echo "🔗 [Ir para a seção de Downloads (Artifacts)](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}#artifacts)" >> $GITHUB_STEP_SUMMARY
-          echo "> _O arquivo **coverage-report** estará disponível no final desta página._" >> $GITHUB_STEP_SUMMARY
-
       - name: Upload Coverage Artifact
         if: always()
         uses: actions/upload-artifact@v4
@@ -92,7 +87,7 @@ jobs:
           path: coverage/
           retention-days: 1
   security:
-    name: 🛡️ Security & Quality Scans
+    name: Security & Quality Scans
     needs: [build, test]
     if: |
       always() &&
@@ -125,8 +120,6 @@ jobs:
             -Dsonar.test.inclusions=src/**/*.spec.ts
             -Dsonar.exclusions=src/**/*.spec.ts
             -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
-
-      # NOVA ETAPA: Aguarda o resultado do Quality Gate
       - name: SonarQube Quality Gate Check
         id: sonarqube-quality-gate-check
         uses: sonarsource/sonarqube-quality-gate-action@master
@@ -134,7 +127,7 @@ jobs:
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
   deploy:
-    name: 🚀 Deploy
+    name: Deploy application
     needs: [build, test, security]
     if: |
       always() &&
