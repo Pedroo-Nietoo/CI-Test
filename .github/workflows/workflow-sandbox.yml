@@ -1,4 +1,4 @@
-name: Workflow Sandbox (Dev)
+name: Workflow Sandbox
 
 on:
   push:
