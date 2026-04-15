@@ -59,9 +59,7 @@ jobs:
           echo "| Arquivo | % Stmts | % Branch | % Funcs | % Lines |" >> $GITHUB_STEP_SUMMARY
           echo "| :--- | :---: | :---: | :---: | :---: |" >> $GITHUB_STEP_SUMMARY
 
-          # 1. Executa o teste
-          # 2. Filtra apenas linhas de arquivos (.ts)
-          # 3. Usa AWK para verificar se QUALQUER uma das colunas (3, 4, 5 ou 6) é menor que 100
+          # Captura o output e processa com AWK para garantir que arquivos < 100% apareçam
           npm run test:cov | \
           grep -E "\.ts|\.js" | \
           grep -v "All files" | \
@@ -72,20 +70,23 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### 📊 Resumo Geral" >> $GITHUB_STEP_SUMMARY
 
-          # Pega a linha All Files e formata bonitinho
           TOTAL_LINE=$(npm run test:cov | grep "All files" | tr -s " " | sed 's/|//g')
-          STMT=$(echo $TOTAL_LINE | awk '{print $2}')
-          BRAN=$(echo $TOTAL_LINE | awk '{print $3}')
-          LINE=$(echo $TOTAL_LINE | awk '{print $5}')
-
-          echo "* **Statements:** $STMT%" >> $GITHUB_STEP_SUMMARY
-          echo "* **Branches:** $BRAN% (Mínimo exigido: 90%)" >> $GITHUB_STEP_SUMMARY
-          echo "* **Lines:** $LINE%" >> $GITHUB_STEP_SUMMARY
+          echo "* **Statements:** $(echo $TOTAL_LINE | awk '{print $2}')%" >> $GITHUB_STEP_SUMMARY
+          echo "* **Branches:** $(echo $TOTAL_LINE | awk '{print $3}')% (Mínimo: 90%)" >> $GITHUB_STEP_SUMMARY
+          echo "* **Lines:** $(echo $TOTAL_LINE | awk '{print $5}')%" >> $GITHUB_STEP_SUMMARY
 
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### 📦 Artefatos e Detalhes" >> $GITHUB_STEP_SUMMARY
-          echo "🔗 [Clique aqui para baixar o Relatório Completo](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}#artifacts)" >> $GITHUB_STEP_SUMMARY
+          # Link restaurado para a página de artefatos
+          echo "🔗 [Clique aqui para baixar o Relatório Completo (Artifacts)](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}#artifacts)" >> $GITHUB_STEP_SUMMARY
 
+      - name: Upload Coverage Artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage/
+          retention-days: 1
   security:
     name: 🛡️ Security & Quality Scans
     needs: [build, test]
