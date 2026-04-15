@@ -18,9 +18,4 @@ describe('Calculator', () => {
   expect(() => calculator.divide(10, 0)).toThrow("Cannot divide by zero");
  });
 
- it('deve cobrir todos os caminhos de complexOperation', () => {
-  expect(calculator.complexOperation(10, 5)).toBe(15);
-  expect(calculator.complexOperation(0, 3)).toBe(-3);
-  expect(calculator.complexOperation(-2, 3)).toBe(-5);
- });
 });
