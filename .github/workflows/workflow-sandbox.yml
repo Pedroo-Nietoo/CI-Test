@@ -56,18 +56,28 @@ jobs:
       - name: Add Coverage Summary
         if: always()
         run: |
-          echo "### 📊 Resumo de Cobertura (Total)" >> $GITHUB_STEP_SUMMARY
-          echo "| File | % Stmts | % Branch | % Funcs | % Lines |" >> $GITHUB_STEP_SUMMARY
+          echo "### 🚩 Arquivos com Cobertura Incompleta" >> $GITHUB_STEP_SUMMARY
+          echo "| Arquivo | % Stmts | % Branch | % Funcs | % Lines |" >> $GITHUB_STEP_SUMMARY
           echo "| :--- | :---: | :---: | :---: | :---: |" >> $GITHUB_STEP_SUMMARY
 
-          # 1. Pega a linha 'All files'
-          # 2. 'tr -s " "' remove espaços duplos
-          # 3. 'sed' remove o caractere '|' que o Jest coloca para não quebrar a tabela MD
-          # 4. 'awk' monta as colunas da tabela
-          npm run test:cov | grep "All files" | tr -s " " | sed 's/|//g' | awk '{print "| **" $1 " " $2 "** | " $3 " | " $4 " | " $5 " | " $6 " |"}' >> $GITHUB_STEP_SUMMARY
+          # 1. Executa o teste e captura a tabela
+          # 2. Filtra linhas que NÃO contêm '100' (arquivos incompletos)
+          # 3. Ignora as linhas de cabeçalho e separadores do Jest
+          # 4. awk formata em colunas Markdown
+          npm run test:cov | \
+          grep -v "100" | \
+          grep -E "\.ts|\.js" | \
+          grep -v "All files" | \
+          tr -s " " | \
+          sed 's/|//g' | \
+          awk '{print "| " $1 " | " $2 " | " $3 " | " $4 " | " $5 " |"}' >> $GITHUB_STEP_SUMMARY
 
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "> 💡 O relatório detalhado pode ser baixado nos **Artifacts** abaixo ou visualizado no **SonarCloud**." >> $GITHUB_STEP_SUMMARY
+          echo "### 📊 Resumo Geral" >> $GITHUB_STEP_SUMMARY
+          npm run test:cov | grep "All files" | tr -s " " | sed 's/|//g' | awk '{print "**" $1 " " $2 "**: " $6 "% das linhas cobertas."}' >> $GITHUB_STEP_SUMMARY
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "> 💡 Se a lista acima estiver vazia, parabéns! Todos os arquivos testados atingiram 100%." >> $GITHUB_STEP_SUMMARY
 
       - name: Upload Coverage Artifact
         if: always()
