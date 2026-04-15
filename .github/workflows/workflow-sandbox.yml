@@ -111,13 +111,14 @@ jobs:
   runs-on: ubuntu-latest
   steps:
    - name: Code checkout
- - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0  # Shallow clones should be disabled for a better relevancy of analysis
-      - name: SonarQube Scan
-        uses: SonarSource/sonarqube-scan-action@v6
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+     uses: actions/checkout@v4
+     with:
+      fetch-depth: 0 # Necessário para o SonarQube analisar o histórico e blame
+
+   - name: SonarQube Scan
+     uses: sonarsource/sonarqube-scan-action@master
+     env:
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
  deploy:
   name: 🚀 Deploy to Sandbox/Dev
