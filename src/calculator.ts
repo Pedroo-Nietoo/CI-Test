@@ -25,7 +25,7 @@ export class Calculator {
   if (a > 0) {
    result = a + b;
   } else {
-   result = a + b;
+   result = a - b;
   }
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
