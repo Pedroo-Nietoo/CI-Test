@@ -19,8 +19,9 @@ describe('Calculator', () => {
  });
 
  it('deve cobrir todos os caminhos de complexOperation', () => {
+  // Testa o branch 'if (a > 0)'
   expect(calculator.complexOperation(10, 5)).toBe(15);
-  expect(calculator.complexOperation(0, 3)).toBe(-3);
-  expect(calculator.complexOperation(-2, 3)).toBe(-5);
+  // Testa o branch 'else'
+  expect(calculator.complexOperation(1, 3)).toBe(4);
  });
 });

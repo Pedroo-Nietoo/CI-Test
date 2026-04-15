@@ -55,17 +55,21 @@ jobs:
       - name: Add Coverage Summary
         if: always()
         run: |
-          echo "### 🚩 Arquivos com Cobertura Incompleta" >> $GITHUB_STEP_SUMMARY
-          echo "| Arquivo | % Stmts | % Branch | % Funcs | % Lines |" >> $GITHUB_STEP_SUMMARY
-          echo "| :--- | :---: | :---: | :---: | :---: |" >> $GITHUB_STEP_SUMMARY
-
-          # Captura o output e processa com AWK para garantir que arquivos < 100% apareçam
-          npm run test:cov | \
+          INCOMPLETE_FILES=$(npm run test:cov | \
           grep -E "\.ts|\.js" | \
           grep -v "All files" | \
           tr -s " " | \
           sed 's/|//g' | \
-          awk '{ if ($2 < 100 || $3 < 100 || $4 < 100 || $5 < 100) print "| **" $1 "** | " $2 "% | " $3 "% | " $4 "% | " $5 "% |" }' >> $GITHUB_STEP_SUMMARY
+          awk '{ if ($2 < 100 || $3 < 100 || $4 < 100 || $5 < 100) print "| **" $1 "** | " $2 "% | " $3 "% | " $4 "% | " $5 "% |" }')
+
+          if [ -z "$INCOMPLETE_FILES" ]; then
+            echo "### ✅ Todos os arquivos atingiram 100% de cobertura!" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "### 🚩 Arquivos com Cobertura Incompleta" >> $GITHUB_STEP_SUMMARY
+            echo "| Arquivo | % Stmts | % Branch | % Funcs | % Lines |" >> $GITHUB_STEP_SUMMARY
+            echo "| :--- | :---: | :---: | :---: | :---: |" >> $GITHUB_STEP_SUMMARY
+            echo "$INCOMPLETE_FILES" >> $GITHUB_STEP_SUMMARY
+          fi
 
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### 📊 Resumo Geral" >> $GITHUB_STEP_SUMMARY
@@ -77,8 +81,8 @@ jobs:
 
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### 📦 Artefatos e Detalhes" >> $GITHUB_STEP_SUMMARY
-          # Link restaurado para a página de artefatos
-          echo "🔗 [Clique aqui para baixar o Relatório Completo (Artifacts)](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}#artifacts)" >> $GITHUB_STEP_SUMMARY
+          echo "🔗 [Ir para a seção de Downloads (Artifacts)](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}#artifacts)" >> $GITHUB_STEP_SUMMARY
+          echo "> _O arquivo **coverage-report** estará disponível no final desta página._" >> $GITHUB_STEP_SUMMARY
 
       - name: Upload Coverage Artifact
         if: always()
