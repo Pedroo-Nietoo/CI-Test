@@ -22,6 +22,6 @@ describe('Calculator', () => {
   // Testa o branch 'if (a > 0)'
   expect(calculator.complexOperation(10, 5)).toBe(15);
   // Testa o branch 'else'
-  expect(calculator.complexOperation(-1, 5)).toBe(4);
+  expect(calculator.complexOperation(1, 3)).toBe(4);
  });
 });

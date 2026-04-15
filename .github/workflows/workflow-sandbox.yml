@@ -47,6 +47,7 @@ jobs:
         with:
           node-version: "22"
           cache: "npm"
+
       - run: npm ci
 
       - name: Unit Tests & Coverage
@@ -55,13 +56,18 @@ jobs:
       - name: Add Coverage Summary
         if: always()
         run: |
-          # Captura apenas a linha de "All files" para evitar listas gigantes
-          COVERAGE_TOTAL=$(npm run test:cov | grep "All files")
-          echo "### 📊 Resumo de Cobertura Total" >> $GITHUB_STEP_SUMMARY
+          echo "### 📊 Resumo de Cobertura (Total)" >> $GITHUB_STEP_SUMMARY
           echo "| File | % Stmts | % Branch | % Funcs | % Lines |" >> $GITHUB_STEP_SUMMARY
-          echo "| --- | --- | --- | --- | --- |" >> $GITHUB_STEP_SUMMARY
-          # Transforma os espaços do Jest em colunas de tabela Markdown
-          echo "$COVERAGE_TOTAL" | awk '{print "| " $1 " " $2 " | " $3 " | " $4 " | " $5 " | " $6 " |"}' >> $GITHUB_STEP_SUMMARY
+          echo "| :--- | :---: | :---: | :---: | :---: |" >> $GITHUB_STEP_SUMMARY
+
+          # 1. Pega a linha 'All files'
+          # 2. 'tr -s " "' remove espaços duplos
+          # 3. 'sed' remove o caractere '|' que o Jest coloca para não quebrar a tabela MD
+          # 4. 'awk' monta as colunas da tabela
+          npm run test:cov | grep "All files" | tr -s " " | sed 's/|//g' | awk '{print "| **" $1 " " $2 "** | " $3 " | " $4 " | " $5 " | " $6 " |"}' >> $GITHUB_STEP_SUMMARY
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "> 💡 O relatório detalhado pode ser baixado nos **Artifacts** abaixo ou visualizado no **SonarCloud**." >> $GITHUB_STEP_SUMMARY
 
       - name: Upload Coverage Artifact
         if: always()
