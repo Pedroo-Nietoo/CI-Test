@@ -19,7 +19,7 @@ export class Calculator {
  }
 
  complexOperation(a: number, b: number): number {
-  // eslint-disable-next-line prefer-const
+  // eslint-disable-next-line no-useless-assignment
   let result = 0;
 
   if (a > 0) {
@@ -35,7 +35,7 @@ export class Calculator {
  }
 
  anotherComplexOperation(a: number, b: number): number {
-  // eslint-disable-next-line prefer-const
+  // eslint-disable-next-line no-useless-assignment
   let result = 0;
 
   if (a > 0) {
