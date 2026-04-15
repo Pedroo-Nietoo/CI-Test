@@ -49,4 +49,20 @@ export class Calculator {
 
   return result;
  }
+
+ anotherComplexOperation2(a: number, b: number): number {
+  // eslint-disable-next-line no-useless-assignment
+  let result = 0;
+
+  if (a > 0) {
+   result = a + b;
+  } else {
+   result = a + b;
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const unusedVariable = "Hello Sonar";
+
+  return result;
+ }
 }

@@ -52,14 +52,16 @@ jobs:
       - name: Unit Tests & Coverage
         run: npm run test:cov
 
-      - name: Add Coverage to Summary
+      - name: Add Coverage Summary
         if: always()
         run: |
-          echo "### 📊 Resumo de Cobertura (Jest)" >> $GITHUB_STEP_SUMMARY
-          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-          # Extrai a tabela do log do jest para o summary
-          npm run test:cov | sed -n '/File/,/---/p' >> $GITHUB_STEP_SUMMARY
-          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          # Captura apenas a linha de "All files" para evitar listas gigantes
+          COVERAGE_TOTAL=$(npm run test:cov | grep "All files")
+          echo "### 📊 Resumo de Cobertura Total" >> $GITHUB_STEP_SUMMARY
+          echo "| File | % Stmts | % Branch | % Funcs | % Lines |" >> $GITHUB_STEP_SUMMARY
+          echo "| --- | --- | --- | --- | --- |" >> $GITHUB_STEP_SUMMARY
+          # Transforma os espaços do Jest em colunas de tabela Markdown
+          echo "$COVERAGE_TOTAL" | awk '{print "| " $1 " " $2 " | " $3 " | " $4 " | " $5 " | " $6 " |"}' >> $GITHUB_STEP_SUMMARY
 
       - name: Upload Coverage Artifact
         if: always()
@@ -72,7 +74,6 @@ jobs:
   security:
     name: 🛡️ Security & Quality Scans
     needs: [build, test]
-    # Ajustado para rodar mesmo se o teste falhar (failure), permitindo análise do Sonar
     if: |
       always() &&
       needs.build.result == 'success' &&
@@ -85,7 +86,6 @@ jobs:
           fetch-depth: 0
 
       - name: Download Coverage Artifact
-        # Baixa se o teste rodou, independente do resultado (sucesso ou falha por coverage)
         if: needs.test.result == 'success' || needs.test.result == 'failure'
         uses: actions/download-artifact@v4
         with:
@@ -93,7 +93,6 @@ jobs:
           path: coverage/
 
       - name: SonarQube Scan
-        if: github.event_name != 'workflow_dispatch' || inputs.enable_sonar == true
         uses: sonarsource/sonarqube-scan-action@master
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
@@ -107,6 +106,13 @@ jobs:
             -Dsonar.exclusions=src/**/*.spec.ts
             -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
 
+      # NOVA ETAPA: Aguarda o resultado do Quality Gate
+      - name: SonarQube Quality Gate Check
+        id: sonarqube-quality-gate-check
+        uses: sonarsource/sonarqube-quality-gate-action@master
+        timeout-minutes: 5
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
   deploy:
     name: 🚀 Deploy
     needs: [build, test, security]
