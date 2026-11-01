@@ -118,11 +118,14 @@ jobs:
           node-version: "22"
           cache: "npm"
 
-      - name: Install Production Dependencies
-        run: npm ci --omit=dev
+      - name: Install All Dependencies
+        run: npm ci
 
       - name: Build Application
         run: npm run build
+
+      - name: Prune Dev Dependencies
+        run: npm prune --omit=dev
 
       - name: Create Deployment Package
         run: |
@@ -134,7 +137,6 @@ jobs:
           name: application-package
           path: deployment-package.tar.gz
           retention-days: 1
-
   deploy:
     name: Deploy to VPS
     needs: [publish]
