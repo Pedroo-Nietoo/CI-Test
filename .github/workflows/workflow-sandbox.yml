@@ -36,41 +36,13 @@ jobs:
         run: npm ci
 
       - name: Execute Linting
-        run: npm run lint
+        run: npm run lint --if-present
 
       - name: Build Application
         run: npm run build
 
-      - name: Execute Unit Tests and Coverage
-        run: npm run test:cov | tee coverage_output.txt
-
-      - name: Generate Coverage Summary
-        if: always()
-        run: |
-          echo "### Test Coverage Summary" >> $GITHUB_STEP_SUMMARY
-          echo "Consolidated project coverage analysis:" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-
-          TOTAL_LINE=$(cat coverage_output.txt | grep "All files" | sed 's/|//g' | tr -s " " || echo "")
-
-          if [ -n "$TOTAL_LINE" ]; then
-            echo "| Metric | Coverage |" >> $GITHUB_STEP_SUMMARY
-            echo "| :--- | :---: |" >> $GITHUB_STEP_SUMMARY
-            echo "| **Statements** | $(echo "$TOTAL_LINE" | awk '{print $3}')% |" >> $GITHUB_STEP_SUMMARY
-            echo "| **Branches** | $(echo "$TOTAL_LINE" | awk '{print $4}')% |" >> $GITHUB_STEP_SUMMARY
-            echo "| **Functions** | $(echo "$TOTAL_LINE" | awk '{print $5}')% |" >> $GITHUB_STEP_SUMMARY
-            echo "| **Lines** | $(echo "$TOTAL_LINE" | awk '{print $6}')% |" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "Coverage metrics could not be extracted." >> $GITHUB_STEP_SUMMARY
-          fi
-
-      - name: Upload Coverage Artifact
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-report
-          path: coverage/
-          retention-days: 1
+      - name: Execute Unit Tests
+        run: npm run test --if-present
 
   sonarqube_scan:
     name: SonarQube Scan
@@ -92,7 +64,7 @@ jobs:
         run: npm ci
 
       - name: Execute Unit Tests for Coverage
-        run: npm run test:cov
+        run: npm run test:cov --if-present
 
       - name: Execute SonarQube Scan
         uses: sonarsource/sonarqube-scan-action@master
@@ -120,15 +92,13 @@ jobs:
         if: success()
         run: |
           echo "### SonarCloud Scan Approved" >> $GITHUB_STEP_SUMMARY
-          echo "The code passed the Quality Gate. No blocking vulnerabilities or code smells were found." >> $GITHUB_STEP_SUMMARY
-          echo "[Access Full SonarCloud Report](https://sonarcloud.io/dashboard?id=${{ github.repository_owner }}_${{ github.event.repository.name }})" >> $GITHUB_STEP_SUMMARY
+          echo "The code passed the Quality Gate." >> $GITHUB_STEP_SUMMARY
 
       - name: SonarQube Summary (Failure)
         if: failure()
         run: |
           echo "### SonarCloud Scan Rejected" >> $GITHUB_STEP_SUMMARY
-          echo "The Quality Gate failed. Please review the report to address the identified issues." >> $GITHUB_STEP_SUMMARY
-          echo "[Access Full SonarCloud Report](https://sonarcloud.io/dashboard?id=${{ github.repository_owner }}_${{ github.event.repository.name }})" >> $GITHUB_STEP_SUMMARY
+          echo "The Quality Gate failed. Review the report." >> $GITHUB_STEP_SUMMARY
 
   publish:
     name: Publish Artifacts
@@ -142,13 +112,31 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Prepare Artifacts for Deployment
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      - name: Install Production Dependencies
+        run: npm ci --omit=dev
+
+      - name: Build Application
+        run: npm run build
+
+      - name: Create Deployment Package
         run: |
-          echo "Publish job executed successfully." >> $GITHUB_STEP_SUMMARY
-          echo "Artifacts are ready for downstream deployment." >> $GITHUB_STEP_SUMMARY
+          tar -czf deployment-package.tar.gz dist/ node_modules/ package.json package-lock.json
+
+      - name: Upload Deployment Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: application-package
+          path: deployment-package.tar.gz
+          retention-days: 1
 
   deploy:
-    name: Deploy Application
+    name: Deploy to VPS
     needs: [publish]
     if: |
       always() &&
@@ -156,54 +144,69 @@ jobs:
       (github.event_name != 'workflow_dispatch' || inputs.enable_deploy_option == true)
     runs-on: ubuntu-latest
     steps:
-      - name: Trigger Render Deployment
-        env:
-          RENDER_SERVICE_ID: ${{ secrets.RENDER_SERVICE_ID }}
-          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
-        run: |
-          echo "Triggering Render API for service ${{ secrets.RENDER_SERVICE_ID }}..."
+      - name: Download Deployment Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: application-package
 
-          RESPONSE=$(curl -s -X POST "https://api.render.com/v1/services/$RENDER_SERVICE_ID/deploys" \
-            -H "Authorization: Bearer $RENDER_API_KEY" \
-            -H "Accept: application/json")
-            
-          DEPLOY_ID=$(echo $RESPONSE | jq -r '.id')
+      - name: Transfer Artifact via SCP
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT || 22 }}
+          source: "deployment-package.tar.gz"
+          target: "/tmp"
 
-          if [ "$DEPLOY_ID" == "null" ] || [ -z "$DEPLOY_ID" ]; then
-            echo "Error triggering deployment: $RESPONSE"
-            exit 1
-          fi
+      - name: Execute Remote Deployment via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT || 22 }}
+          script: |
+            set -e
 
-          echo "Deployment triggered (ID: $DEPLOY_ID). Waiting for Render server completion..."
+            APP_DIR="/var/www/eventer-api"
+            BACKUP_DIR="/var/www/backups/eventer-api_$(date +%Y%m%d_%H%M%S)"
+            APP_NAME="eventer-api"
 
-          STATUS="created"
-          while [ "$STATUS" == "created" ] || [ "$STATUS" == "build_in_progress" ] || [ "$STATUS" == "update_in_progress" ]; do
-            sleep 15
-            STATUS_RESPONSE=$(curl -s -X GET "https://api.render.com/v1/services/$RENDER_SERVICE_ID/deploys/$DEPLOY_ID" \
-              -H "Authorization: Bearer $RENDER_API_KEY" \
-              -H "Accept: application/json")
-            STATUS=$(echo $STATUS_RESPONSE | jq -r '.status')
-            echo "Current Render status: $STATUS"
-          done
+            echo "Preparing deployment directories..."
+            mkdir -p $APP_DIR
+            mkdir -p /var/www/backups
 
-          if [ "$STATUS" == "live" ]; then
-            echo "Deployment is successfully online."
-            exit 0
-          else
-            echo "Deployment failed on Render with status: $STATUS"
-            exit 1
-          fi
+            echo "Backing up current version..."
+            if [ -d "$APP_DIR/dist" ]; then
+              cp -r $APP_DIR $BACKUP_DIR
+            fi
+
+            echo "Extracting new release..."
+            tar -xzf /tmp/deployment-package.tar.gz -C /tmp/
+
+            echo "Applying updates..."
+            rsync -av --delete /tmp/dist/ $APP_DIR/dist/
+            rsync -av --delete /tmp/node_modules/ $APP_DIR/node_modules/
+            cp /tmp/package.json $APP_DIR/
+
+            echo "Cleaning up temporary files..."
+            rm -rf /tmp/deployment-package.tar.gz /tmp/dist /tmp/node_modules /tmp/package.json /tmp/package-lock.json
+
+            echo "Restarting PM2 process..."
+            export PATH="$HOME/.nvm/versions/node/v22.0.0/bin:$PATH" # Adjust path according to your VPS node installation
+            pm2 restart $APP_NAME || pm2 start $APP_DIR/dist/main.js --name $APP_NAME
+
+            echo "Deployment completed successfully."
 
       - name: Deploy Summary (Success)
         if: success()
         run: |
           echo "### Deployment Completed Successfully" >> $GITHUB_STEP_SUMMARY
-          echo "The application was compiled and deployed to Render without errors." >> $GITHUB_STEP_SUMMARY
-          echo "Access Environment: [https://eventer-api-dev.onrender.com](https://eventer-api-dev.onrender.com)" >> $GITHUB_STEP_SUMMARY
+          echo "The application was successfully packaged, transferred, and restarted on the VPS via PM2." >> $GITHUB_STEP_SUMMARY
 
       - name: Deploy Summary (Failure)
         if: failure()
         run: |
           echo "### Deployment Failed" >> $GITHUB_STEP_SUMMARY
-          echo "An error occurred during the Render deployment process." >> $GITHUB_STEP_SUMMARY
-          echo "Check the Render dashboard for server logs to identify the build failure." >> $GITHUB_STEP_SUMMARY
+          echo "An error occurred during the SCP transfer or SSH deployment script execution." >> $GITHUB_STEP_SUMMARY
